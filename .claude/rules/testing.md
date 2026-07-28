@@ -6,14 +6,14 @@ description: テスト実行コマンドとテスト方針
 
 ```bash
 # 全件
-python -m pytest tests/ -v --tb=short
+uv run pytest tests/ -v --tb=short
 
 # 単一ファイル
-python -m pytest tests/services/test_summary_service.py -v
+uv run pytest tests/services/test_summary_service.py -v
 
 # 単一テスト
-python -m pytest tests/services/test_summary_service.py::test_generate_summary -v
+uv run pytest tests/services/test_summary_service.py::test_generate_summary -v
 
 # カバレッジ付き
-python -m pytest tests/ -v --tb=short --cov=app --cov-report=html
+uv run pytest tests/ -v --tb=short --cov=app --cov-report=html
 ```

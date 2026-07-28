@@ -9,6 +9,7 @@ from xml.etree.ElementTree import Element
 
 XML_ENCODING = "cp932"
 CODE_PATTERN = re.compile(r"^(\d+)(.*)$")
+EXCLUDED_TAGS = frozenset({"SumStaff", "Kind4"})
 
 
 def load_root(xml_path: Path) -> Element:
@@ -20,7 +21,7 @@ def iter_code_entries(element: Element) -> list[tuple[str, str, str]]:
     entries: list[tuple[str, str, str]] = []
     for child in element:
         raw_code = (child.findtext("Code") or "").strip()
-        if raw_code:
+        if raw_code and child.tag not in EXCLUDED_TAGS:
             name = (child.findtext("Name") or "").strip()
             for code in raw_code.split(","):
                 if code.strip():
@@ -29,20 +30,20 @@ def iter_code_entries(element: Element) -> list[tuple[str, str, str]]:
     return entries
 
 
-def aggregate_by_number(
+def aggregate_by_tag_and_number(
     entries: list[tuple[str, str, str]],
-) -> dict[int, tuple[set[str], set[str], set[str]]]:
-    """数値部分をキーに (名称, 要素名, 接尾辞) を集約する。"""
-    aggregated: dict[int, tuple[set[str], set[str], set[str]]] = {}
+) -> dict[tuple[str, int], tuple[set[str], set[str]]]:
+    """(要素名, 数値部分) をキーに (名称, 接尾辞) を集約する。"""
+    aggregated: dict[tuple[str, int], tuple[set[str], set[str]]] = {}
     for tag, code, name in entries:
         matched = CODE_PATTERN.match(code)
         if matched is None:
             continue
-        number = int(matched.group(1))
-        names, tags, suffixes = aggregated.setdefault(number, (set(), set(), set()))
+        names, suffixes = aggregated.setdefault(
+            (tag, int(matched.group(1))), (set(), set())
+        )
         if name:
             names.add(name)
-        tags.add(tag)
         if matched.group(2):
             suffixes.add(matched.group(2))
     return aggregated
@@ -65,18 +66,18 @@ def find_free_ranges(used: set[int], maximum: int) -> list[tuple[int, int]]:
 
 
 def write_csv(
-    csv_path: Path, aggregated: dict[int, tuple[set[str], set[str], set[str]]]
+    csv_path: Path, aggregated: dict[tuple[str, int], tuple[set[str], set[str]]]
 ) -> None:
     with csv_path.open("w", encoding="utf-8-sig", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["コード", "名称", "要素", "接尾辞"])
-        for number in sorted(aggregated):
-            names, tags, suffixes = aggregated[number]
+        writer.writerow(["要素", "コード", "名称", "接尾辞"])
+        for tag, number in sorted(aggregated):
+            names, suffixes = aggregated[(tag, number)]
             writer.writerow(
                 [
+                    tag,
                     number,
                     " / ".join(sorted(names)),
-                    " / ".join(sorted(tags)),
                     " / ".join(sorted(suffixes)),
                 ]
             )
@@ -108,10 +109,10 @@ def main() -> None:
     args = parser.parse_args()
 
     entries = iter_code_entries(load_root(args.xml))
-    aggregated = aggregate_by_number(entries)
+    aggregated = aggregate_by_tag_and_number(entries)
     write_csv(args.output, aggregated)
 
-    used = set(aggregated)
+    used = {number for _, number in aggregated}
     maximum = max(used)
     free_ranges = find_free_ranges(used, maximum)
     free_count = sum(end - start + 1 for start, end in free_ranges)

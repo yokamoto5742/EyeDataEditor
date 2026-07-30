@@ -1,15 +1,19 @@
-"""EyeData.xml の <Code> / <Name> を一覧化し、空き番号を表示するスクリプト。"""
-
 import argparse
-import csv
 import re
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from pathlib import Path
 from xml.etree.ElementTree import Element
+
+from openpyxl import Workbook
+
+from utils.config_manager import ConfigManager
 
 XML_ENCODING = "cp932"
 CODE_PATTERN = re.compile(r"^(\d+)(.*)$")
 EXCLUDED_TAGS = frozenset({"SumStaff", "Kind4"})
+INVALID_SHEET_NAME_CHARS = re.compile(r"[:\\/?*\[\]]")
+SHEET_NAME_MAX_LENGTH = 31
 
 
 def load_root(xml_path: Path) -> Element:
@@ -65,22 +69,35 @@ def find_free_ranges(used: set[int], maximum: int) -> list[tuple[int, int]]:
     return ranges
 
 
-def write_csv(
-    csv_path: Path, aggregated: dict[tuple[str, int], tuple[set[str], set[str]]]
-) -> None:
-    with csv_path.open("w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["要素", "コード", "名称", "接尾辞"])
-        for tag, number in sorted(aggregated):
-            names, suffixes = aggregated[(tag, number)]
-            writer.writerow(
-                [
-                    tag,
-                    number,
-                    " / ".join(sorted(names)),
-                    " / ".join(sorted(suffixes)),
-                ]
-            )
+def sanitize_sheet_name(tag: str) -> str:
+    """Excel のシート名制約（使用不可文字・31文字以内）に収める。"""
+    return INVALID_SHEET_NAME_CHARS.sub("_", tag)[:SHEET_NAME_MAX_LENGTH]
+
+
+def write_excel(
+    output_dir: Path, aggregated: dict[tuple[str, int], tuple[set[str], set[str]]]
+) -> Path:
+    """要素名ごとにシートを分けて Excel ファイルに出力する。"""
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    workbook = Workbook()
+    default_sheet = workbook.active
+    if default_sheet is not None:
+        workbook.remove(default_sheet)
+
+    for tag, number in sorted(aggregated):
+        sheet_name = sanitize_sheet_name(tag)
+        sheet = workbook[sheet_name] if sheet_name in workbook.sheetnames else None
+        if sheet is None:
+            sheet = workbook.create_sheet(sheet_name)
+            sheet.append(["コード", "名称", "接尾辞"])
+        names, suffixes = aggregated[(tag, number)]
+        sheet.append([number, " / ".join(sorted(names)), " / ".join(sorted(suffixes))])
+
+    timestamp = datetime.now().astimezone().strftime("%Y%m%d%H%M%S")
+    excel_path = output_dir / f"eyedata_codes_{timestamp}.xlsx"
+    workbook.save(excel_path)
+    return excel_path
 
 
 def format_range(start: int, end: int) -> str:
@@ -99,25 +116,20 @@ def main() -> None:
         default=project_root / "EyeData.xml",
         help="EyeData.xml のパス",
     )
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        default=Path("eyedata_codes.csv"),
-        help="出力する CSV ファイル",
-    )
     args = parser.parse_args()
 
     entries = iter_code_entries(load_root(args.xml))
     aggregated = aggregate_by_tag_and_number(entries)
-    write_csv(args.output, aggregated)
+
+    output_dir = ConfigManager().get_path("eyedata_codes_output")
+    excel_path = write_excel(output_dir, aggregated)
 
     used = {number for _, number in aggregated}
     maximum = max(used)
     free_ranges = find_free_ranges(used, maximum)
     free_count = sum(end - start + 1 for start, end in free_ranges)
 
-    print(f"コード一覧を {args.output.resolve()} に出力しました")
+    print(f"コード一覧を {excel_path.resolve()} に出力しました")
     print(f"使用中: {len(used)} 件 (1-{maximum})  空き: {free_count} 件")
     print("空き番号:")
     print(", ".join(format_range(start, end) for start, end in free_ranges))

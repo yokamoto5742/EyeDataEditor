@@ -1,6 +1,7 @@
 build/
 dist/
 logs/
+output/
 .idea/
 .serena/
 
@@ -10,4 +11,3 @@ logs/
 *.iml
 
 error_log.txt
-eyedata_codes.csv

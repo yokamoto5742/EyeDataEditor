@@ -12,6 +12,7 @@
 
 ### Changed
 - `../service/eyedata_codes.py`: `SumStaff` / `Kind4` 要素を出力対象から除外し、CSV を 要素・コード・名称・接尾辞 の列順で要素→コードの昇順に出力する
+- `../service/eyedata_codes.py`: CSV 出力を廃止し、要素名ごとにシートを分けた Excel（`eyedata_codes_yyyymmddHHmmss.xlsx`）を出力するように変更。出力先ディレクトリは `utils/config.ini` の `[Paths] eyedata_codes_output` で設定可能にする
 
 ## [1.0.0] - 2026-04-24
 - 初版リリース

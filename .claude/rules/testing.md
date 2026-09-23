@@ -4,16 +4,18 @@ description: テスト実行コマンドとテスト方針
 
 ## テスト実行コマンド
 
+依存関係は uv で管理しているため、pytest も `uv run` 経由で実行する。
+
 ```bash
 # 全件
-.venv\Scripts\python.exe -m pytest tests/ -v --tb=short
+uv run pytest tests/ -v --tb=short
 
 # 単一ファイル
-.venv\Scripts\python.exe -m pytest tests/service/test_keep_doc_merge.py -v
+uv run pytest tests/service/test_eyedata_codes.py -v
 
 # 単一テスト
-.venv\Scripts\python.exe -m pytest tests/service/test_keep_doc_merge.py::test_merge_memo_trashes_copy_after_merge -v
+uv run pytest tests/service/test_eyedata_codes.py::test_find_free_ranges -v
 
 # カバレッジ付き
-.venv\Scripts\python.exe -m pytest tests/ -v --tb=short --cov=app --cov-report=html
+uv run pytest tests/ -v --tb=short --cov=service --cov=utils --cov-report=html
 ```

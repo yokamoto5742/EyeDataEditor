@@ -10,5 +10,8 @@
 ### 追加
 - `service/postop_merge.py`: targetdata.xlsx の手術日から 21〜180 日後で最も近い vaiop.csv・refkeratometer.csv の行を右端に追加し、`targetdata_yyyymmdd_HHmmss.xlsx` として出力する処理を追加
 
+### 修正
+- `service/postop_merge.py`: CSV の「日付」列が 2 桁年（例: `24/03/23`）のため `ValueError` になる不具合を修正
+
 ## [1.0.0] - 2026-04-24
 - 初版リリース

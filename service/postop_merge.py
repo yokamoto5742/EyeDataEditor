@@ -13,7 +13,9 @@ SURGERY_DATE_HEADER = "手術日"
 PATIENT_ID_HEADER = "患者ID"
 # 測定値が空欄かどうかの判定に含めない列
 NON_MEASUREMENT_COLUMNS = frozenset({"日付", "ID", "SEQ", "機種", "測定日時"})
-DATETIME_FORMATS = ("%Y/%m/%d %H:%M", "%Y/%m/%d")
+# CSV の「日付」列は 2 桁年（例: 24/03/23）
+CSV_DATE_FORMAT = "%y/%m/%d"
+DATETIME_FORMATS = ("%Y/%m/%d %H:%M", "%Y/%m/%d", CSV_DATE_FORMAT)
 
 CsvRow = dict[str, str]
 
@@ -33,7 +35,7 @@ def group_by_id(rows: list[CsvRow]) -> dict[str, list[CsvRow]]:
 
 
 def parse_date(text: str) -> date:
-    return datetime.strptime(text.strip(), "%Y/%m/%d").date()
+    return datetime.strptime(text.strip(), CSV_DATE_FORMAT).date()
 
 
 def is_blank_measurement(row: CsvRow) -> bool:

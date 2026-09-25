@@ -8,7 +8,9 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 CSV_ENCODING = "cp932"
 DAYS_FROM = 21
-DAYS_TO = 180
+DAYS_TO = 90
+# この術後日数に最も近い行を採用する
+TARGET_DAYS = 28
 SURGERY_DATE_HEADER = "手術日"
 PATIENT_ID_HEADER = "患者ID"
 # 測定値が空欄かどうかの判定に含めない列
@@ -47,8 +49,9 @@ def is_blank_measurement(row: CsvRow) -> bool:
 
 
 def select_closest_row(rows: list[CsvRow], surgery_date: date) -> CsvRow | None:
-    """手術日の 21〜180 日後の行のうち、手術日に最も近い行を返す。
+    """手術日の 21〜90 日後の行のうち、術後日数が 28 日に最も近い行を返す。
 
+    28 日との差が同じ場合は術後日数の大きい行を採用する。
     同じ日に複数行ある場合は、測定値のある行を優先し SEQ の小さい行を採用する。
     """
     start = surgery_date + timedelta(days=DAYS_FROM)
@@ -56,14 +59,17 @@ def select_closest_row(rows: list[CsvRow], surgery_date: date) -> CsvRow | None:
     candidates = [row for row in rows if start <= parse_date(row["日付"]) <= end]
     if not candidates:
         return None
-    return min(
-        candidates,
-        key=lambda row: (
-            parse_date(row["日付"]),
+
+    def sort_key(row: CsvRow) -> tuple[int, int, bool, int]:
+        days_after = (parse_date(row["日付"]) - surgery_date).days
+        return (
+            abs(days_after - TARGET_DAYS),
+            -days_after,
             is_blank_measurement(row),
             int(row.get("SEQ") or 0),
-        ),
-    )
+        )
+
+    return min(candidates, key=sort_key)
 
 
 def to_cell_value(text: str) -> int | float | datetime | str | None:
@@ -138,7 +144,7 @@ def merge_postop_data(
 def main() -> None:
     project_root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(
-        description="targetdata.xlsx に術後 21〜180 日の vaiop・refkeratometer データを追加する"
+        description="targetdata.xlsx に術後 21〜90 日の vaiop・refkeratometer データを追加する"
     )
     parser.add_argument(
         "data_dir",

@@ -13,11 +13,23 @@ def make_row(day: str, seq: str = "1", value: str = "1.0") -> dict[str, str]:
 
 
 def test_select_closest_row_boundaries() -> None:
-    rows = [make_row("26/01/21"), make_row("26/01/22"), make_row("26/06/30")]
+    rows = [make_row("26/01/21"), make_row("26/01/22"), make_row("26/04/01")]
     assert select_closest_row(rows, SURGERY_DATE) == rows[1]
     assert select_closest_row([rows[0]], SURGERY_DATE) is None
     assert select_closest_row([rows[2]], SURGERY_DATE) == rows[2]
-    assert select_closest_row([make_row("26/07/01")], SURGERY_DATE) is None
+    assert select_closest_row([make_row("26/04/02")], SURGERY_DATE) is None
+
+
+def test_select_closest_row_prefers_closest_to_28_days() -> None:
+    day21 = make_row("26/01/22")
+    day30 = make_row("26/01/31")
+    assert select_closest_row([day21, day30], SURGERY_DATE) == day30
+
+
+def test_select_closest_row_prefers_later_day_on_tie() -> None:
+    day26 = make_row("26/01/27")
+    day30 = make_row("26/01/31")
+    assert select_closest_row([day26, day30], SURGERY_DATE) == day30
 
 
 def test_select_closest_row_prefers_measured_row_then_smallest_seq() -> None:

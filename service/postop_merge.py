@@ -1,5 +1,6 @@
 import argparse
 import csv
+from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -13,6 +14,7 @@ DAYS_TO = 90
 TARGET_DAYS = 28
 SURGERY_DATE_HEADER = "手術日"
 PATIENT_ID_HEADER = "患者ID"
+EYE_HEADER = "術眼"
 # 測定値が空欄かどうかの判定に含めない列
 NON_MEASUREMENT_COLUMNS = frozenset({"日付", "ID", "SEQ", "機種", "測定日時"})
 # CSV の「日付」列は 2 桁年（例: 24/03/23）
@@ -20,6 +22,8 @@ CSV_DATE_FORMAT = "%y/%m/%d"
 DATETIME_FORMATS = ("%Y/%m/%d %H:%M", "%Y/%m/%d", CSV_DATE_FORMAT)
 
 CsvRow = dict[str, str]
+# 引数は (患者の CSV 行, 手術日, 術眼)
+RowSelector = Callable[[list[CsvRow], date, str], CsvRow | None]
 
 
 def load_csv(csv_path: Path) -> tuple[list[str], list[CsvRow]]:
@@ -95,11 +99,15 @@ def append_columns(
     prefix: str,
     fieldnames: list[str],
     rows_by_id: dict[str, list[CsvRow]],
+    select_row: RowSelector = lambda rows, surgery_date, _eye: select_closest_row(
+        rows, surgery_date
+    ),
 ) -> None:
     """シートの右端に CSV の全列を追加し、対象者ごとに選んだ 1 行を書き込む。"""
     header = [cell.value for cell in sheet[1]]
     date_column = header.index(SURGERY_DATE_HEADER) + 1
     id_column = header.index(PATIENT_ID_HEADER) + 1
+    eye_column = header.index(EYE_HEADER) + 1
     first_column = sheet.max_column + 1
 
     for offset, name in enumerate(fieldnames):
@@ -110,8 +118,9 @@ def append_columns(
         patient_id = sheet.cell(row=row_index, column=id_column).value
         if not isinstance(surgery, datetime) or patient_id is None:
             continue
-        selected = select_closest_row(
-            rows_by_id.get(str(patient_id), []), surgery.date()
+        eye = str(sheet.cell(row=row_index, column=eye_column).value or "")
+        selected = select_row(
+            rows_by_id.get(str(patient_id), []), surgery.date(), eye
         )
         if selected is None:
             continue

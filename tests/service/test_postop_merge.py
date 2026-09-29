@@ -58,9 +58,9 @@ def test_merge_postop_data(tmp_path: Path) -> None:
     workbook = Workbook()
     sheet = workbook.active
     assert sheet is not None
-    sheet.append(["手術日", "患者ID"])
-    sheet.append([datetime(2026, 1, 1), 1])
-    sheet.append([datetime(2026, 1, 1), 2])
+    sheet.append(["手術日", "患者ID", "術眼"])
+    sheet.append([datetime(2026, 1, 1), 1, "R"])
+    sheet.append([datetime(2026, 1, 1), 2, "R"])
     target_path = tmp_path / "targetdata.xlsx"
     workbook.save(target_path)
     (tmp_path / "vaiop.csv").write_text(
@@ -79,8 +79,8 @@ def test_merge_postop_data(tmp_path: Path) -> None:
     assert output_sheet is not None
     rows = list(output_sheet.iter_rows(values_only=True))
     assert rows[0] == (
-        "手術日", "患者ID", "vaiop_日付", "vaiop_ID", "vaiop_304R",
+        "手術日", "患者ID", "術眼", "vaiop_日付", "vaiop_ID", "vaiop_304R",
         "ref_日付", "ref_ID", "ref_SEQ", "ref_R_S",
     )
-    assert rows[1][2:] == (datetime(2026, 2, 1), 1, 13, datetime(2026, 2, 1), 1, 1, -1.25)
-    assert rows[2][2:] == (None,) * 7
+    assert rows[1][3:] == (datetime(2026, 2, 1), 1, 13, datetime(2026, 2, 1), 1, 1, -1.25)
+    assert rows[2][3:] == (None,) * 7
